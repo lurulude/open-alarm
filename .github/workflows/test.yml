@@ -31,6 +31,7 @@ jobs:
           node-version: "24"
       - run: npm install --no-audit --no-fund
       - run: npm run build
+      - run: node --test mobile-layout.test.mjs
       - run: node --check ../open_alarm_indicator.js
       - name: Test corner indicator logic
         run: |

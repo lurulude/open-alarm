@@ -133,16 +133,19 @@ def _copy_license_files(dist: metadata.Distribution, destination: Path) -> list[
     package_name = dist.metadata.get("Name") or "unknown"
     package_version = dist.version
     package_dir = destination / f"{package_name}-{package_version}"
+    declared = {Path(value).name for value in (dist.metadata.get_all("License-File") or [])}
 
     for entry in dist.files or []:
-        basename = Path(str(entry)).name.upper()
-        if not basename.startswith(("LICENSE", "LICENCE", "COPYING", "NOTICE")):
+        entry_path = Path(str(entry))
+        basename = entry_path.name
+        upper = basename.upper()
+        if basename not in declared and not upper.startswith(("LICENSE", "LICENCE", "COPYING", "NOTICE")):
             continue
         source = Path(dist.locate_file(entry))
         if not source.is_file():
             continue
         package_dir.mkdir(parents=True, exist_ok=True)
-        target = package_dir / Path(str(entry)).name
+        target = package_dir / basename
         shutil.copyfile(source, target)
         copied.append(str(target.relative_to(destination)))
 
@@ -180,13 +183,15 @@ def main() -> int:
         print(f"{name}=={dist.version}: {license_name}")
         if not ok:
             failures.append(f"{name}=={dist.version}: {license_name} ({source})")
+        if args.copy_license_files and not copied:
+            failures.append(f"{name}=={dist.version}: no distributable LICENSE/NOTICE file found")
 
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     if failures:
-        print("\nUnapproved or unknown Python dependency licenses:", file=sys.stderr)
+        print("\nUnapproved or incomplete Python dependency license records:", file=sys.stderr)
         for failure in failures:
             print(f"- {failure}", file=sys.stderr)
         return 1

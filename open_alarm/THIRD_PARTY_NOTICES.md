@@ -2,7 +2,7 @@
 
 Open Alarm itself is licensed under Apache-2.0. Third-party packages, build tools and container-base components retain their own licenses and copyrights. This file records the release audit; it does not relicense third-party software under the Open Alarm license.
 
-Audit date: **2026-08-31** for **0.1.0-beta.2**.
+Audit date: **2026-08-31** for **0.1.0-beta.3**.
 
 The audited Open Alarm Python/npm dependency graphs contain **no proprietary, commercial-only, noncommercial-only or field-of-use-restricted package**. The project license gate also rejects unknown licenses instead of treating them as acceptable by default.
 
@@ -12,7 +12,7 @@ Dependency ranges may select newer compatible versions in a future build. Every 
 
 ## 1. Runtime Python dependency graph
 
-Direct runtime requirements are declared in `requirements.txt`. The following exact runtime graph was resolved and reviewed for the Beta.2 release build:
+Direct runtime requirements are declared in `requirements.txt`. The following exact runtime graph was resolved and reviewed for the Beta.3 release build:
 
 | Package | Version | License |
 | --- | ---: | --- |
@@ -42,7 +42,7 @@ The final App image keeps each installed Python distribution's own `.dist-info` 
 
 ## 2. Frontend dependency/build graph
 
-The frontend package manifest has two production dependencies (`react` and `react-dom`) plus build/type-check tooling. `scheduler` is pulled by React DOM. The Beta.2 build resolved the following complete npm graph on the Linux CI/build platform:
+The frontend package manifest has two production dependencies (`react` and `react-dom`) plus build/type-check tooling. `scheduler` is pulled by React DOM. The Beta.3 build resolved the following complete npm graph on the Linux CI/build platform:
 
 | Package | Version | License |
 | --- | ---: | --- |
@@ -91,7 +91,7 @@ Open Alarm does not bundle font files or third-party image assets. CSS names com
 
 ## 3. Test-only Python/CI graph
 
-The normal CI test command adds `httpx2`, `pytest` and `ruff`. The additional packages unique to or needed by that test graph in the Beta.2 audit were:
+The normal CI test command adds `httpx2`, `pytest` and `ruff`. The additional packages unique to or needed by that test graph in the Beta.3 audit were:
 
 | Package | Version | License |
 | --- | ---: | --- |
@@ -126,7 +126,7 @@ The official Node Docker image packaging repository is MIT licensed. Node.js and
 
 The Home Assistant `docker-base` repository is Apache-2.0 licensed and is published specifically as the base for Home Assistant container/App builds. Its resulting images contain multiple independent open-source operating-system/runtime components under their own licenses. The base image may therefore include permissive and reciprocal free-software licenses that are separate from Open Alarm's Apache-2.0 source license.
 
-Open Alarm Beta.2 is distributed as a **source-built Home Assistant App repository**. Open Alarm does not publish a prebuilt combined Open Alarm image to a registry; the user's Home Assistant installation performs the image build locally from this Dockerfile and the referenced upstream bases. If the project later publishes prebuilt multi-architecture images, base-image redistribution/source-offer obligations must be audited again before publishing those images.
+Open Alarm Beta.3 is distributed as a **source-built Home Assistant App repository**. Open Alarm does not publish a prebuilt combined Open Alarm image to a registry; the user's Home Assistant installation performs the image build locally from this Dockerfile and the referenced upstream bases. If the project later publishes prebuilt multi-architecture images, base-image redistribution/source-offer obligations must be audited again before publishing those images.
 
 `run.sh` uses plain `/bin/sh`; Open Alarm no longer depends on Home Assistant Bashio APIs.
 
@@ -138,7 +138,7 @@ Home Assistant API names, entity IDs, App manifest keys, Supervisor/Core endpoin
 
 ## 6. Source/assets provenance scan
 
-The Beta.2 repository review found no intentionally vendored JavaScript/Python library source, third-party font file, image asset, minified vendor file, Stack Overflow attribution, copied GitHub gist, embedded third-party copyright header or SPDX header in Open Alarm application source.
+The Beta.3 repository review found no intentionally vendored JavaScript/Python library source, third-party font file, image asset, minified vendor file, Stack Overflow attribution, copied GitHub gist, embedded third-party copyright header or SPDX header in Open Alarm application source.
 
 That scan cannot prove that independently written or AI-assisted code has no textual similarity to code elsewhere. The limits of AI source provenance and the rule for uncertain code are documented in `../PROVENANCE.md`.
 

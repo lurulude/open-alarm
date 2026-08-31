@@ -63,9 +63,9 @@ The Beta security boundary is intentionally narrow:
 - normal UI/API access is Home Assistant Ingress-only;
 - `/healthz` is the minimal direct watchdog exception;
 - the App accepts Home Assistant user identity only from Supervisor Ingress requests and requires the ingress user headers;
-- Home Assistant handles ingress authentication, and the Open Alarm sidebar panel is currently admin-only;
+- Home Assistant handles ingress authentication; the Open Alarm sidebar panel is available to authenticated Home Assistant users;
 - Open Alarm applies its own role checks to API actions;
-- the first authenticated ingress user becomes the first Open Alarm Admin; later users start as Viewer until assigned another Open Alarm role;
+- the first authenticated ingress user on a fresh database becomes the first Open Alarm Admin; later users start as Viewer until assigned another Open Alarm role;
 - the App uses `homeassistant_api: true` for required Supervisor/Core API access and does not require broad Supervisor administrator privileges for user authorization;
 - the optional corner indicator is not auto-installed and the App does not request `/config` write permission for it;
 - database/configuration state is stored in the App data directory rather than Home Assistant configuration files.

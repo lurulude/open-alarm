@@ -1,5 +1,5 @@
 name: Open Alarm
-version: "0.1.0-beta.1"
+version: "0.1.0-beta.2"
 slug: open_alarm
 description: SCADA-style alarm management for Home Assistant
 url: https://github.com/lurulude/open-alarm

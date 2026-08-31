@@ -4,8 +4,11 @@
 
 Open Alarm adds a dedicated, persistent alarm engine to Home Assistant. Engineer analog, digital and device/quality alarms in one table, then operate them with acknowledgement, hysteresis, delays, shelving, suppression, out-of-service controls, history and notification groups.
 
-## Beta.2 highlights
+## Beta.3 highlights
 
+- Fixes clean-install Ingress API failures caused by redundant Home Assistant administrator verification
+- Makes the Open Alarm sidebar panel available to authenticated Home Assistant users
+- Keeps Open Alarm's own Viewer / Operator / Engineer / Admin roles authoritative for application actions
 - Analog HiHi / Hi / Lo / LoLo alarms with hysteresis and restart-safe ON/OFF delays
 - Digital alarms with debounce and ON/OFF delays
 - Device/quality alarms for unavailable, unknown, missing, stale and bad-quality sources
@@ -19,7 +22,9 @@ Open Alarm adds a dedicated, persistent alarm engine to Home Assistant. Engineer
 - Optional always-visible browser `⚠ N` corner indicator
 - Release-time Python/npm dependency license audit and packaged third-party notices
 
-Open Alarm runs through Home Assistant Ingress and stores its runtime/configuration data in the App data directory using SQLite/WAL. Beta.2 supports `aarch64` and `amd64` and currently builds the App image from source during installation/update.
+Open Alarm runs through Home Assistant Ingress and stores its runtime/configuration data in the App data directory using SQLite/WAL. Beta.3 supports `aarch64` and `amd64` and currently builds the App image from source during installation/update.
+
+On a fresh database, the first authenticated Home Assistant user to open Open Alarm becomes the first Open Alarm Admin. Later users start as Viewer until an Open Alarm Admin assigns another role.
 
 > [!WARNING]
 > Open Alarm is Beta software and is not a certified safety system. Do not use it as the sole protective layer for life-safety or equipment-protection functions.

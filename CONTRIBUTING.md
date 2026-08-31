@@ -40,6 +40,7 @@ Python 3.13 is used in CI.
 
 ```bash
 python -m pip install -r open_alarm/requirements.txt 'httpx2>=2.12,<3' pytest ruff
+python open_alarm/license_audit.py fastapi uvicorn pydantic websockets httpx2 pytest ruff
 ruff check open_alarm tests
 pytest -q
 ```
@@ -53,6 +54,7 @@ Node 24 is used in CI.
 ```bash
 cd open_alarm/frontend
 npm install --no-audit --no-fund
+node license-audit.mjs node_modules
 npm run build
 node --check ../open_alarm_indicator.js
 ```
@@ -63,12 +65,12 @@ The optional `open_alarm_indicator.js` is a standalone Home Assistant frontend m
 
 ```bash
 docker build \
-  --build-arg BUILD_VERSION=0.1.0-beta.1 \
+  --build-arg BUILD_VERSION=0.1.0-beta.2 \
   --build-arg BUILD_ARCH=amd64 \
   -t open-alarm ./open_alarm
 ```
 
-The CI App smoke test boots the real packaged image, verifies health/database creation, restarts it with the same `/data` volume and checks migration/integrity state.
+The CI App smoke test boots the real packaged image, verifies health/database creation, verifies the packaged license inventories/notices, restarts it with the same `/data` volume and checks migration/integrity state.
 
 ## Code layout
 
@@ -131,6 +133,26 @@ Notification changes should test:
 - retry/idempotency expectations;
 - no generated internal alarm IDs in primary operator-facing text unless intentionally required for diagnostics.
 
+## Third-party code, assets and dependencies
+
+Every contribution must have a clear right to redistribute everything it adds.
+
+Do **not** paste or adapt source from Stack Overflow, blogs, gists, closed-source products, commercial SDKs, other repositories, generated vendor bundles, icons, fonts or images unless the upstream source and license have first been identified and the license permits Open Alarm's public distribution. Required copyright/attribution/license notices must be retained and documented.
+
+A new Python/npm dependency is acceptable only after its actual installed license passes the project audit. Open Alarm currently rejects proprietary, commercial-only, noncommercial-only, field-of-use-restricted, source-available-but-restricted and unknown-license dependencies. Do not widen the allowlist just to make CI green: review the upstream license first.
+
+When adding or changing a dependency:
+
+- explain why an existing dependency or the standard library is insufficient;
+- run both dependency-license audits;
+- update `open_alarm/THIRD_PARTY_NOTICES.md` when the release-visible dependency graph changes;
+- retain any required license/copyright/NOTICE material in the distributed artifact;
+- consider the effect on both source distribution and any future prebuilt container-image distribution.
+
+Home Assistant public API/configuration identifiers may be used for interoperability. Do not copy substantial Home Assistant developer-documentation prose or code examples into Open Alarm; that documentation is separately licensed.
+
+AI-assisted code must not be described as copied from a particular upstream project unless that source is actually known. If a generated or submitted implementation appears to reproduce distinctive third-party code and the provenance/license cannot be established, replace it with a clean implementation rather than guessing. See [PROVENANCE.md](PROVENANCE.md).
+
 ## Localization
 
 English and Finnish catalogs must stay in parity.
@@ -166,11 +188,11 @@ Test payload/operator text and outbox behavior.
 
 ### Frontend/i18n
 
-Ensure `npm run build` passes and translation coverage remains complete.
+Ensure the npm license audit and `npm run build` pass and translation coverage remains complete.
 
 ### Home Assistant App packaging
 
-If App manifest, Dockerfile, startup, static frontend packaging or health behavior changes, the packaged App smoke test must still pass.
+If App manifest, Dockerfile, startup, static frontend packaging or health behavior changes, the packaged App smoke test and packaged license verification must still pass.
 
 ## Pull requests
 
@@ -182,6 +204,7 @@ Keep a PR narrow enough to review. Include:
 - operator/runtime behavior before and after;
 - tests added/changed;
 - migration/backup implications, if any;
+- new dependencies or third-party material and their licenses, if any;
 - screenshots only when they materially help evaluate UI behavior.
 
 There is no required commit-message format. Clear, small commits are preferred while the work is under review; maintainers may squash when appropriate.
@@ -194,7 +217,9 @@ User-facing changes should update the relevant documentation in the same contrib
 - App Store intro: `open_alarm/README.md`;
 - usage/operations: `open_alarm/DOCS.md`;
 - architecture/invariants: `ARCHITECTURE.md`;
-- release notes: `open_alarm/CHANGELOG.md`.
+- release notes: `open_alarm/CHANGELOG.md`;
+- third-party dependency/attribution inventory: `open_alarm/THIRD_PARTY_NOTICES.md` when applicable;
+- source-provenance policy: `PROVENANCE.md` when applicable.
 
 Do not leave roadmap/speculative features in release documentation. The working tree should describe the program that actually exists.
 
@@ -204,4 +229,4 @@ Do not open a public issue/PR with a live exploit, credential, Supervisor token 
 
 ## License
 
-Open Alarm is Apache-2.0 licensed. By contributing code or documentation, you must have the right to submit it and understand that accepted contributions are distributed under the repository's Apache-2.0 license.
+Open Alarm project source is Apache-2.0 licensed. By contributing code or documentation, you must have the right to submit it and understand that accepted project contributions are distributed under the repository's Apache-2.0 license. Third-party material retains its own license and is never automatically relicensed merely because it is referenced by Open Alarm.

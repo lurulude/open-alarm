@@ -7,7 +7,6 @@ from fastapi import Depends, HTTPException, Request, status
 
 from ..auth.models import AppUser, UserRole
 from ..auth.repository import resolve_ingress_user
-from ..ha.client import HomeAssistantConnectionError
 
 
 async def current_user(request: Request) -> AppUser:
@@ -16,19 +15,6 @@ async def current_user(request: Request) -> AppUser:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Home Assistant Ingress user identity is required",
-        )
-
-    try:
-        ha_admin_verified = await request.app.state.ha_admin_authorizer.is_active_admin(user_id)
-    except HomeAssistantConnectionError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Home Assistant user authorization could not be verified",
-        ) from exc
-    if not ha_admin_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="An active Home Assistant administrator is required",
         )
 
     return resolve_ingress_user(

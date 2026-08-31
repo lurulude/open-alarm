@@ -44,7 +44,7 @@ A useful security report normally includes:
 
 Reports are especially valuable for problems involving:
 
-- bypass of Home Assistant Ingress or administrator verification;
+- bypass of Home Assistant Ingress or trusted ingress user identity;
 - Open Alarm Viewer / Operator / Engineer / Admin role bypass;
 - unauthorized acknowledgement, suppression, out-of-service or Engineering activation;
 - exposure or misuse of `SUPERVISOR_TOKEN`;
@@ -62,10 +62,11 @@ The Beta security boundary is intentionally narrow:
 
 - normal UI/API access is Home Assistant Ingress-only;
 - `/healthz` is the minimal direct watchdog exception;
-- Ingress identity is verified against Home Assistant rather than trusted on its own;
+- the App accepts Home Assistant user identity only from Supervisor Ingress requests and requires the ingress user headers;
+- Home Assistant handles ingress authentication, and the Open Alarm sidebar panel is currently admin-only;
 - Open Alarm applies its own role checks to API actions;
-- the Home Assistant panel is currently admin-only;
-- the App uses `homeassistant_api: true` for required Supervisor/Core API access;
+- the first authenticated ingress user becomes the first Open Alarm Admin; later users start as Viewer until assigned another Open Alarm role;
+- the App uses `homeassistant_api: true` for required Supervisor/Core API access and does not require broad Supervisor administrator privileges for user authorization;
 - the optional corner indicator is not auto-installed and the App does not request `/config` write permission for it;
 - database/configuration state is stored in the App data directory rather than Home Assistant configuration files.
 

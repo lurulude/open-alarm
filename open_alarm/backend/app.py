@@ -15,7 +15,6 @@ from .api.engineering_table import router as engineering_table_router
 from .api.notifications import router as notification_router
 from .api.router import router as api_router
 from .db.database import apply_migrations, checkpoint_wal, connect, verify_integrity
-from .ha.users import HomeAssistantAdminAuthorizer
 from .i18n.catalog import TranslationCatalog
 from .runtime.host import RuntimeHost
 
@@ -62,7 +61,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     app.state.database = connection
     app.state.runtime_host = runtime_host
-    app.state.ha_admin_authorizer = HomeAssistantAdminAuthorizer(cache_ttl_s=60.0)
 
     await runtime_host.start()
     try:

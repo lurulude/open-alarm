@@ -4,6 +4,30 @@ All notable Open Alarm release changes are documented here.
 
 Open Alarm is currently in Beta. Beta releases may change engineering fields, database schema and UI behavior. Release notes will call out changes that require backup, migration or operator action.
 
+## 0.1.0-beta.3 — 2026-08-31
+
+Beta.3 fixes clean-install Ingress authorization and opens the Open Alarm panel to authenticated Home Assistant users while retaining Open Alarm's own role enforcement.
+
+### Home Assistant Ingress authorization
+
+- Removed the redundant per-request Home Assistant WebSocket `config/auth/list` lookup that could return `503 Home Assistant user authorization could not be verified` on a clean App installation.
+- Open Alarm now accepts the authenticated `X-Remote-User-Id`, username and display-name headers supplied by Home Assistant Supervisor Ingress after the existing Ingress-source gate admits the request.
+- The production App continues to reject normal UI/API traffic that does not originate from the Supervisor Ingress proxy; `/healthz` remains the narrow watchdog exception.
+- Open Alarm no longer requires broad Supervisor administrator privileges merely to re-check the same authenticated ingress user.
+
+### Roles and panel access
+
+- Changed `panel_admin` to `false`, so the Open Alarm sidebar panel is available to authenticated Home Assistant users rather than HA administrators only.
+- Open Alarm's own Viewer / Operator / Engineer / Admin permissions remain authoritative for Open Alarm actions.
+- On a fresh database, the first authenticated ingress user becomes the first Open Alarm Admin; later users start as Viewer until an Open Alarm Admin changes their role.
+- Added regression coverage for first-user bootstrap, later-user least privilege, missing ingress identity and the production ingress-source gate.
+
+### Upgrade
+
+- No database migration or Engineering configuration change is required from `0.1.0-beta.2`.
+- Existing Open Alarm users and roles are preserved during update.
+- Users on Beta.2 should update to Beta.3 to resolve the clean-install `503` authorization failure.
+
 ## 0.1.0-beta.2 — 2026-08-31
 
 Second public Beta update focused on Home Assistant frontend reliability, phone-sized layouts and release-license provenance.

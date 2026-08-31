@@ -1,20 +1,20 @@
 # Open Alarm App Guide
 
-Open Alarm is a Home Assistant OS App for SCADA-style alarm management. This guide covers installation, configuration, alarm behavior, notifications, Home Assistant attention states, the optional corner indicator, mobile UI, persistence, backup/recovery, licensing and troubleshooting for **0.1.0-beta.2**.
+Open Alarm is a Home Assistant OS App for SCADA-style alarm management. This guide covers installation, configuration, alarm behavior, notifications, Home Assistant attention states, the optional corner indicator, mobile UI, persistence, backup/recovery, licensing and troubleshooting for **0.1.0-beta.3**.
 
 > [!WARNING]
 > Open Alarm is Beta software and is not a certified safety system. It must not be the sole protective layer for life-safety, fire, medical, machinery-protection or other safety-critical functions.
 
 ## 1. Requirements
 
-Open Alarm Beta.2 supports Home Assistant App installations on:
+Open Alarm Beta.3 supports Home Assistant App installations on:
 
 - `aarch64`
 - `amd64`
 
 The App uses Home Assistant Ingress and Supervisor/Core API access, declares `homeassistant_api: true`, boots automatically, has a Supervisor watchdog and participates in Home Assistant cold backups.
 
-The current sidebar panel is `panel_admin: true`, so standard sidebar access requires a Home Assistant administrator. Open Alarm still maintains Viewer, Operator, Engineer and Admin roles internally for authorization and audit.
+The sidebar panel is available to authenticated Home Assistant users. Open Alarm maintains Viewer, Operator, Engineer and Admin roles internally for authorization and audit.
 
 ## 2. Install and update
 
@@ -26,11 +26,13 @@ Refresh the App store, install **Open Alarm**, start it and open it from the sid
 
 The repository currently builds the App container from source on the Home Assistant machine. Installation/update therefore needs network access for the referenced base images and package dependencies and can take several minutes on smaller hardware.
 
-Home Assistant detects Open Alarm updates from the `version` in `config.yaml`. Beta.2 is a normal forward update from Beta.1. No database migration or Engineering configuration change is required for the Beta.1 → Beta.2 update.
+Home Assistant detects Open Alarm updates from the `version` in `config.yaml`. Beta.3 is a normal forward update from Beta.2. No database migration or Engineering configuration change is required for the Beta.2 → Beta.3 update.
 
 ### First administrator
 
-Ingress identity is verified against Home Assistant. The first verified Home Assistant administrator to open Open Alarm becomes the first Open Alarm **Admin**. Later verified Home Assistant administrators are created with least privilege and can be assigned an Open Alarm role by an Open Alarm Admin.
+Home Assistant authenticates the Ingress session, and Supervisor supplies the authenticated user's `X-Remote-User-Id`, username and display-name headers to Open Alarm. The production App accepts normal UI/API requests only from the Supervisor Ingress proxy.
+
+On a fresh Open Alarm database, the first authenticated Home Assistant user to open Open Alarm becomes the first Open Alarm **Admin**. Later authenticated users are created with least privilege as **Viewer** and can be assigned another Open Alarm role by an Open Alarm Admin.
 
 Roles:
 
@@ -156,7 +158,7 @@ Alarm transition and notification-outbox enqueue are committed together. Delayed
 
 ### Mobile-action limitation
 
-The current group transport uses Home Assistant `notify.send_message` and sends **title + message**. Integration-specific mobile `data` is not forwarded, so Beta.2 generic groups do not provide tap-to-open deep links or actionable ACK buttons.
+The current group transport uses Home Assistant `notify.send_message` and sends **title + message**. Integration-specific mobile `data` is not forwarded, so Beta.3 generic groups do not provide tap-to-open deep links or actionable ACK buttons.
 
 ## 14. Home Assistant attention states
 
@@ -192,7 +194,7 @@ The App deliberately does not request `/config` write permission just to install
 
 ## 16. Responsive/mobile UI
 
-Beta.2 removes the previous fixed desktop-width canvas. On phone-sized screens:
+Beta.3 retains the responsive layout introduced in Beta.2. On phone-sized screens:
 
 - navigation scrolls within its bar;
 - alarm/history tables scroll inside the content area;
@@ -234,7 +236,7 @@ Third-party software retains its own licenses and copyrights. See:
 - `../PROVENANCE.md`
 - `THIRD_PARTY_NOTICES.md`
 
-Beta.2 audits the actual installed Python/npm dependency graphs during CI and App build. Unknown/unreviewed license metadata fails the build. The policy rejects proprietary, commercial-only, noncommercial-only, field-of-use-restricted and source-available-but-restricted Python/npm dependencies.
+Beta.3 audits the actual installed Python/npm dependency graphs during CI and App build. Unknown/unreviewed license metadata fails the build. The policy rejects proprietary, commercial-only, noncommercial-only, field-of-use-restricted and source-available-but-restricted Python/npm dependencies.
 
 The built App image contains `/app/licenses/` with:
 
@@ -268,6 +270,10 @@ The source-built App can take longer to update than a prebuilt registry image.
 ### App does not appear in the store
 
 Confirm repository URL, refresh the store and verify architecture is `aarch64` or `amd64`.
+
+### Alarm browser returns 503 authorization error
+
+If Beta.2 returns `503 {"detail":"Home Assistant user authorization could not be verified"}` while `/api/runtime/status` remains healthy, update to Beta.3. Beta.3 removes the redundant Home Assistant administrator-list WebSocket lookup and uses the authenticated Supervisor Ingress identity directly.
 
 ### Build fails during dependency license audit
 
@@ -305,6 +311,8 @@ Open Alarm retains the current process lifecycle instead of falsely clearing it 
 
 Before relying on a Beta build, verify what matters to the installation:
 
+- authenticated Home Assistant users can open the Open Alarm panel;
+- first-user Admin bootstrap and later-user Viewer default on a fresh test database;
 - analog threshold/hysteresis/ON/OFF behavior;
 - digital debounce and delays;
 - restart during a pending timer;

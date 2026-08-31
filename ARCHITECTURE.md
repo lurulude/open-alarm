@@ -408,11 +408,14 @@ The App UI/API is Ingress-only except `/healthz`.
 
 For requests that require a user:
 
-1. Ingress identity headers identify the Home Assistant user context;
-2. Open Alarm verifies the user with Home Assistant rather than trusting headers alone;
-3. first verified Home Assistant administrator bootstraps the first Open Alarm Admin;
-4. later users start with least privilege;
-5. API endpoints enforce Open Alarm roles.
+1. Home Assistant authenticates the Ingress session;
+2. Supervisor injects the authenticated user's `X-Remote-User-Id`, username and display-name headers;
+3. Open Alarm accepts those headers only behind the production Ingress-source gate;
+4. the first authenticated ingress user on a fresh database bootstraps the first Open Alarm Admin;
+5. later users start with least privilege as Viewer;
+6. API endpoints enforce Open Alarm roles.
+
+Open Alarm deliberately does not perform a second per-request `config/auth/list` lookup. That command requires broader Home Assistant administrator authorization than the App needs for its normal Core API integration and caused valid Ingress requests to fail on clean installations.
 
 Roles are ordered:
 
@@ -425,7 +428,7 @@ Examples:
 - Engineer: Engineering, suppress, out-of-service;
 - Admin: activation and role administration.
 
-The packaged Home Assistant panel is currently `panel_admin: true`, so Beta sidebar access itself is restricted to Home Assistant administrators.
+The packaged Home Assistant panel uses `panel_admin: false`, so authenticated Home Assistant users can open it; Open Alarm roles determine what they can do inside the App.
 
 Operator/configuration actions store the authenticated user ID and history presentation resolves known IDs to Open Alarm display names.
 
@@ -459,7 +462,7 @@ Operator presentation rules hide generated engineering alarm IDs as primary labe
 open_alarm/
 ├── backend/
 │   ├── api/              HTTP API, role dependencies and request models
-│   ├── auth/             Open Alarm users, Home Assistant identity and roles
+│   ├── auth/             Open Alarm users, Ingress identity and roles
 │   ├── config/           typed config model and internal compiler
 │   ├── db/               SQLite schema, queries, activation and persistence
 │   ├── domain/           alarm lifecycle/evaluation rules
@@ -522,7 +525,7 @@ The following are deliberate Beta trade-offs rather than hidden capabilities:
 - one SQLite database / one App process;
 - no clustering or external database mode;
 - source-built App installation instead of prebuilt GHCR images;
-- admin-only Home Assistant panel;
+- first authenticated user on a fresh database performs the Open Alarm Admin bootstrap;
 - generic notification groups are title/message only;
 - optional global corner overlay depends on Home Assistant frontend DOM/navigation behavior;
 - runtime compatibility fallback can still use one full `get_states` bootstrap if filtered `subscribe_entities` is unavailable;

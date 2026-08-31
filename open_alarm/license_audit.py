@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Audit installed Python dependency licenses without third-party audit tooling."""
 
 from __future__ import annotations

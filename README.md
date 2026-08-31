@@ -4,7 +4,7 @@
 
 Open Alarm is a Home Assistant OS App that adds a dedicated alarm engine for process-style monitoring. Instead of building one helper or automation for every condition, alarms are engineered in one table and handled through a persistent lifecycle with acknowledgement, delays, hysteresis, history and operator controls.
 
-Current release: **0.1.0-beta.2**.
+Current release: **0.1.0-beta.3**.
 
 > [!IMPORTANT]
 > Open Alarm is Beta software, not a certified safety system. Do not use it as the sole protective layer for life-safety, fire, medical, machinery protection or other safety-critical functions.
@@ -38,12 +38,12 @@ The design intentionally stays small: one App, one SQLite database, one engineer
 
 ## Supported environment
 
-Open Alarm `0.1.0-beta.2` is packaged as a Home Assistant App for:
+Open Alarm `0.1.0-beta.3` is packaged as a Home Assistant App for:
 
 - `aarch64`
 - `amd64`
 
-The App uses Home Assistant Ingress and the Supervisor/Core API. The current Home Assistant sidebar panel is intentionally **admin-only** (`panel_admin: true`). Open Alarm still maintains Viewer, Operator, Engineer and Admin roles internally for authorization and audit, but Beta UI access through the standard sidebar currently requires a Home Assistant administrator.
+The App uses Home Assistant Ingress and the Supervisor/Core API. The Home Assistant sidebar panel is available to authenticated Home Assistant users. Open Alarm maintains Viewer, Operator, Engineer and Admin roles internally for authorization and audit.
 
 ## Install and update
 
@@ -57,9 +57,9 @@ The App uses Home Assistant Ingress and the Supervisor/Core API. The current Hom
 5. Start the App.
 6. Open **Open Alarm** from the Home Assistant sidebar.
 
-When a newer `version` is published in `open_alarm/config.yaml`, Home Assistant Supervisor can offer the App update through the normal App UI. Beta.2 is a normal forward update from Beta.1.
+When a newer `version` is published in `open_alarm/config.yaml`, Home Assistant Supervisor can offer the App update through the normal App UI. Beta.3 is a normal forward update from Beta.2 and fixes the clean-install Ingress authorization failure.
 
-Home Assistant authenticates Ingress users and Supervisor supplies their `X-Remote-User-*` identity headers to Open Alarm. Because the Open Alarm panel is admin-only, the first authenticated ingress user to open Open Alarm becomes the first Open Alarm Admin. Later users are added with least privilege and can be assigned an Open Alarm role by an Open Alarm Admin.
+Home Assistant authenticates Ingress users and Supervisor supplies their `X-Remote-User-*` identity headers to Open Alarm. The first authenticated ingress user to open a fresh Open Alarm installation becomes the first Open Alarm Admin. Later users are added with least privilege and can be assigned an Open Alarm role by an Open Alarm Admin.
 
 The Beta repository currently builds the App image from source on the Home Assistant machine. Prebuilt registry images are not required for Beta. The first install, update or rebuild can therefore take longer on small hardware.
 
@@ -126,7 +126,7 @@ Notification groups are configured once in Engineering and selected by alarm row
 
 The current group transport uses Home Assistant's generic `notify.send_message` path and sends **title + message**. Operator-visible notification text uses the configured Message when present, otherwise the Home Assistant friendly name, localized alarm condition and current value/unit. The compact **other alarms** section contains only alarms that still require acknowledgement.
 
-Because the generic group transport intentionally strips integration-specific mobile data, the current group notification does **not** provide a tap-to-open Open Alarm deep link or mobile actionable ACK buttons. Those would require a separate mobile-app-specific transport and are not part of Beta.2.
+Because the generic group transport intentionally strips integration-specific mobile data, the current group notification does **not** provide a tap-to-open Open Alarm deep link or mobile actionable ACK buttons. Those would require a separate mobile-app-specific transport and are not part of Beta.3.
 
 ## Home Assistant attention states
 
@@ -161,8 +161,8 @@ The App declares Home Assistant `backup: cold`; normal Home Assistant App backup
 - UI/API traffic is available through Home Assistant Ingress only; the production app rejects non-watchdog requests that do not come from Supervisor's ingress proxy.
 - `/healthz` is the minimal direct watchdog endpoint.
 - Home Assistant authenticates the ingress session and Supervisor supplies the authenticated user's `X-Remote-User-*` headers.
-- The Home Assistant panel is admin-only; Open Alarm does not request broad Supervisor administrator privileges merely to re-check the same ingress user.
-- Open Alarm applies its own Viewer / Operator / Engineer / Admin authorization to API actions.
+- Open Alarm does not require Home Assistant administrator membership just to open the panel; Open Alarm's own roles authorize Viewer / Operator / Engineer / Admin actions.
+- The first authenticated user on a fresh database bootstraps the Open Alarm Admin role; later users start as Viewer.
 - Configuration, control and acknowledgement actions are associated with the authenticated user for audit.
 - The optional corner indicator does not grant the App extra filesystem permissions.
 
@@ -173,7 +173,6 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting and supported-version
 - Beta may still change database schema, engineering fields and UI behavior.
 - Only `aarch64` and `amd64` App architectures are packaged today.
 - App installation currently builds the container locally instead of downloading a prebuilt registry image.
-- The Home Assistant panel is admin-only in Beta.2.
 - Generic notification groups do not provide mobile-app-specific deep links/actions.
 - The optional fixed corner overlay depends on Home Assistant frontend behavior and is not guaranteed inside Companion-app WebViews.
 - Existing history created before friendly-name/unit metadata was stored cannot be retroactively enriched with information that was never recorded.
@@ -215,7 +214,7 @@ Packaged App:
 
 ```bash
 docker build \
-  --build-arg BUILD_VERSION=0.1.0-beta.2 \
+  --build-arg BUILD_VERSION=0.1.0-beta.3 \
   --build-arg BUILD_ARCH=amd64 \
   -t open-alarm ./open_alarm
 ```

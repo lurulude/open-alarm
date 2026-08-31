@@ -1,0 +1,214 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: python -m pip install -r open_alarm/requirements.txt 'httpx2>=2.12,<3' pytest ruff
+      - run: ruff check open_alarm tests
+      - run: pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: open_alarm/frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - run: node --check ../open_alarm_indicator.js
+      - name: Test corner indicator logic
+        run: |
+          node <<'NODE'
+          const assert = require("node:assert/strict");
+          require("../open_alarm_indicator.js");
+
+          const { indicatorModel, resolveOpenAlarmPanelPath } =
+            globalThis.__openAlarmIndicatorTest;
+
+          assert.equal(
+            resolveOpenAlarmPanelPath({
+              panels: {
+                local_open_alarm: {
+                  component_name: "app",
+                  config: { addon: "local_open_alarm" },
+                  title: "Open Alarm",
+                  url_path: "local_open_alarm",
+                },
+              },
+            }),
+            "/local_open_alarm",
+          );
+          assert.equal(
+            resolveOpenAlarmPanelPath({
+              panels: {
+                abc123_open_alarm: {
+                  component_name: "app",
+                  config: { addon: "abc123_open_alarm" },
+                  title: "Open Alarm",
+                  url_path: "abc123_open_alarm",
+                },
+              },
+            }),
+            "/abc123_open_alarm",
+          );
+          assert.equal(resolveOpenAlarmPanelPath({ panels: {} }), null);
+
+          assert.deepEqual(indicatorModel(null, false), {
+            visible: false,
+            mode: "loading",
+            text: "",
+            count: 0,
+          });
+          assert.deepEqual(indicatorModel(null, true), {
+            visible: true,
+            mode: "missing",
+            text: "⚠ ?",
+            count: 0,
+          });
+          assert.deepEqual(
+            indicatorModel(
+              {
+                states: {
+                  "sensor.open_alarm_unacknowledged": { state: "3" },
+                  "binary_sensor.open_alarm_attention": { state: "on" },
+                },
+              },
+              true,
+            ),
+            { visible: true, mode: "alarm", text: "⚠ 3", count: 3 },
+          );
+          assert.deepEqual(
+            indicatorModel(
+              {
+                states: {
+                  "sensor.open_alarm_unacknowledged": { state: "0" },
+                  "binary_sensor.open_alarm_attention": { state: "off" },
+                },
+              },
+              true,
+            ),
+            { visible: false, mode: "normal", text: "", count: 0 },
+          );
+          assert.deepEqual(
+            indicatorModel(
+              {
+                states: {
+                  "sensor.open_alarm_unacknowledged": { state: "unavailable" },
+                  "binary_sensor.open_alarm_attention": { state: "unavailable" },
+                },
+              },
+              true,
+            ),
+            { visible: true, mode: "unavailable", text: "⚠ ?", count: 0 },
+          );
+          NODE
+
+  app-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build packaged App
+        run: |
+          docker build \
+            --build-arg BUILD_VERSION=0.1.0-beta.1 \
+            --build-arg BUILD_ARCH=amd64 \
+            --tag open-alarm-ci \
+            ./open_alarm
+      - name: Verify packaged frontend
+        run: |
+          docker run --rm open-alarm-ci sh -c \
+            'grep -R -q "engineering.group_title" /app/frontend_dist/assets && grep -R -q "source_friendly_name" /app/frontend_dist/assets && grep -R -q "engineering.entity_search_placeholder" /app/frontend_dist/assets'
+      - name: Smoke test boot and persistent restart
+        shell: bash
+        run: |
+          set -euo pipefail
+          container="open-alarm-smoke"
+          data_dir="${RUNNER_TEMP}/open-alarm-smoke-data"
+          mkdir -p "${data_dir}"
+
+          cleanup() {
+            docker logs "${container}" || true
+            docker rm -f "${container}" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          start_app() {
+            docker run --detach \
+              --name "${container}" \
+              --publish 18099:8099 \
+              --volume "${data_dir}:/data" \
+              --env OPEN_ALARM_ENFORCE_INGRESS_SOURCE=0 \
+              open-alarm-ci >/dev/null
+          }
+
+          wait_for_health() {
+            for attempt in $(seq 1 60); do
+              if curl --fail --silent --show-error \
+                http://127.0.0.1:18099/api/health \
+                --output "${RUNNER_TEMP}/open-alarm-health.json"; then
+                return 0
+              fi
+              if [ "${attempt}" -eq 60 ]; then
+                echo "Open Alarm did not become healthy" >&2
+                return 1
+              fi
+              sleep 1
+            done
+          }
+
+          start_app
+          wait_for_health
+          python3 - "${RUNNER_TEMP}/open-alarm-health.json" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              health = json.load(handle)
+
+          assert health["status"] == "ok", health
+          assert health["database"] == "ok", health
+          assert health["runtime"]["configured"] is False, health
+          assert health["runtime"]["running"] is False, health
+          PY
+          curl --fail --silent --show-error http://127.0.0.1:18099/healthz >/dev/null
+          curl --fail --silent --show-error http://127.0.0.1:18099/ | grep -q "Open Alarm"
+          test -s "${data_dir}/open_alarm.db"
+
+          docker stop --time 15 "${container}" >/dev/null
+          docker rm "${container}" >/dev/null
+
+          start_app
+          wait_for_health
+
+          python3 - "${data_dir}/open_alarm.db" <<'PY'
+          import sqlite3
+          import sys
+
+          connection = sqlite3.connect(sys.argv[1])
+          try:
+              migrations = connection.execute(
+                  "SELECT COUNT(*) FROM schema_migration"
+              ).fetchone()[0]
+              integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
+          finally:
+              connection.close()
+
+          assert migrations > 0, migrations
+          assert integrity == "ok", integrity
+          PY

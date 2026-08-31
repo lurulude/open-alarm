@@ -1,0 +1,2 @@
+ACK_ACTION_PREFIX = "OPEN_ALARM_ACK_"
+MOBILE_NOTIFICATION_ACTION_EVENT = "mobile_app_notification_action"

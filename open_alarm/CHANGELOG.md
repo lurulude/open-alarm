@@ -6,7 +6,7 @@ Open Alarm is currently in Beta. Beta releases may change engineering fields, da
 
 ## 0.1.0-beta.2 — 2026-08-31
 
-Second public Beta update focused on Home Assistant frontend reliability and phone-sized layouts.
+Second public Beta update focused on Home Assistant frontend reliability, phone-sized layouts and release-license provenance.
 
 ### Mobile and responsive UI
 
@@ -28,10 +28,22 @@ Second public Beta update focused on Home Assistant frontend reliability and pho
 - Added behavioral CI coverage for the indicator routing and state model.
 - The corner overlay remains best-effort in Home Assistant Companion WebViews; the underlying Open Alarm Home Assistant states remain available independently.
 
+### Licensing and provenance
+
+- Kept Open Alarm project source under Apache License 2.0 and added a repository `NOTICE` plus an App-folder copy of the complete Apache license.
+- Added `PROVENANCE.md` documenting project-authored/AI-assisted source provenance, the limits of model training-data attribution and the rule to replace code when third-party provenance cannot be established.
+- Added `THIRD_PARTY_NOTICES.md` with the exact Python/npm dependency graph and reviewed licenses used for the Beta.2 release.
+- Added Python and npm license gates. Missing, proprietary, restricted or otherwise unreviewed dependency licenses now fail CI/build rather than being accepted silently.
+- The App build retains actual installed Python/npm license inventories and available runtime license files under `/app/licenses/`.
+- React, React DOM and Scheduler MIT license files are retained because their code is incorporated into the production frontend bundle.
+- Removed the unnecessary Open Alarm dependency on the Home Assistant Bashio interpreter; App startup now uses plain `/bin/sh`.
+- Repository source/assets were scanned for third-party copyright/SPDX headers, Stack Overflow references and vendored/minified/font/image assets; no undisclosed vendored third-party application material was identified in the Beta.2 tree.
+
 ### Upgrade
 
-- No database migration or configuration change is required from `0.1.0-beta.1`.
+- No database migration or Engineering configuration change is required from `0.1.0-beta.1`.
 - Existing alarms, engineering revisions, users, history and notification configuration remain in the App data volume during a normal Home Assistant App update.
+- The update adds build-time license verification only; it does not alter alarm lifecycle or persisted runtime semantics.
 
 ## 0.1.0-beta.1 — 2026-08-31
 

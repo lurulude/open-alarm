@@ -4,7 +4,7 @@
 
 Open Alarm is a Home Assistant OS App that adds a dedicated alarm engine for process-style monitoring. Instead of building one helper or automation for every condition, alarms are engineered in one table and handled through a persistent lifecycle with acknowledgement, delays, hysteresis, history and operator controls.
 
-Current release: **0.1.0-beta.1**.
+Current release: **0.1.0-beta.2**.
 
 > [!IMPORTANT]
 > Open Alarm is Beta software, not a certified safety system. Do not use it as the sole protective layer for life-safety, fire, medical, machinery protection or other safety-critical functions.
@@ -31,19 +31,21 @@ The design intentionally stays small: one App, one SQLite database, one engineer
 - Persistent notification outbox with delay, retry and stale-notification revalidation.
 - Alarm browser and history with friendly Home Assistant source names and units.
 - English and Finnish operator UI/backend localization.
-- Native Home Assistant alarm-attention states plus an optional always-visible corner indicator.
+- Native Home Assistant alarm-attention states plus an optional always-visible browser corner indicator.
+- Responsive phone/tablet layout for alarm, history, Engineering and Admin views.
 - SQLite/WAL persistence and Home Assistant cold-backup integration.
+- Release-time Python/npm license audit plus bundled third-party notices.
 
 ## Supported environment
 
-Open Alarm `0.1.0-beta.1` is packaged as a Home Assistant App for:
+Open Alarm `0.1.0-beta.2` is packaged as a Home Assistant App for:
 
 - `aarch64`
 - `amd64`
 
 The App uses Home Assistant Ingress and the Supervisor/Core API. The current Home Assistant sidebar panel is intentionally **admin-only** (`panel_admin: true`). Open Alarm still maintains Viewer, Operator, Engineer and Admin roles internally for authorization and audit, but Beta UI access through the standard sidebar currently requires a Home Assistant administrator.
 
-## Install
+## Install and update
 
 1. In Home Assistant, open **Settings → Apps → App store**.
 2. Add this App repository:
@@ -55,9 +57,11 @@ The App uses Home Assistant Ingress and the Supervisor/Core API. The current Hom
 5. Start the App.
 6. Open **Open Alarm** from the Home Assistant sidebar.
 
+When a newer `version` is published in `open_alarm/config.yaml`, Home Assistant Supervisor can offer the App update through the normal App UI. Beta.2 is a normal forward update from Beta.1.
+
 The first verified Home Assistant administrator to open Open Alarm becomes the first Open Alarm Admin. Other verified Home Assistant administrators are added with least privilege and can be assigned an Open Alarm role by an Open Alarm Admin.
 
-The Beta repository currently builds the App image from source on the Home Assistant machine. Prebuilt registry images are not required for Beta. The first install or rebuild can therefore take longer on small hardware.
+The Beta repository currently builds the App image from source on the Home Assistant machine. Prebuilt registry images are not required for Beta. The first install, update or rebuild can therefore take longer on small hardware.
 
 ## First alarm in five minutes
 
@@ -122,7 +126,7 @@ Notification groups are configured once in Engineering and selected by alarm row
 
 The current group transport uses Home Assistant's generic `notify.send_message` path and sends **title + message**. Operator-visible notification text uses the configured Message when present, otherwise the Home Assistant friendly name, localized alarm condition and current value/unit. The compact **other alarms** section contains only alarms that still require acknowledgement.
 
-Because the generic group transport intentionally strips integration-specific mobile data, the current group notification does **not** provide a tap-to-open Open Alarm deep link or mobile actionable ACK buttons. Those would require a separate mobile-app-specific transport and are not part of Beta.1.
+Because the generic group transport intentionally strips integration-specific mobile data, the current group notification does **not** provide a tap-to-open Open Alarm deep link or mobile actionable ACK buttons. Those would require a separate mobile-app-specific transport and are not part of Beta.2.
 
 ## Home Assistant attention states
 
@@ -137,14 +141,14 @@ On a clean App stop, Open Alarm marks these states unavailable. The App republis
 
 ## Optional always-visible corner indicator
 
-`open_alarm/open_alarm_indicator.js` is an optional Home Assistant frontend module that displays a fixed indicator in the top-right corner of the Home Assistant UI:
+`open_alarm/open_alarm_indicator.js` is an optional Home Assistant frontend module that displays a fixed indicator in the top-right corner of the Home Assistant frontend:
 
 - no unacknowledged alarms → hidden;
 - one or more → red `⚠ N`;
-- clean Open Alarm stop/unavailable state → amber `⚠ ?`;
-- click → opens Open Alarm.
+- missing/unavailable Open Alarm state → amber `⚠ ?`;
+- click → opens the registered Open Alarm panel.
 
-The overlay is **not installed automatically**. This keeps the App from requesting write access to `/config` just for frontend decoration. See [the App guide](open_alarm/DOCS.md#optional-always-visible-corner-indicator) for setup.
+The overlay is **not installed automatically**. This keeps the App from requesting write access to `/config` just for frontend decoration. It is useful in desktop browsers, but Companion-app WebView behavior is best effort because Home Assistant does not provide a supported global-overlay API for Apps. See [the App guide](open_alarm/DOCS.md#optional-always-visible-corner-indicator) for setup.
 
 ## Persistence and backups
 
@@ -168,9 +172,9 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting and supported-version
 - Beta may still change database schema, engineering fields and UI behavior.
 - Only `aarch64` and `amd64` App architectures are packaged today.
 - App installation currently builds the container locally instead of downloading a prebuilt registry image.
-- The Home Assistant panel is admin-only in Beta.1.
+- The Home Assistant panel is admin-only in Beta.2.
 - Generic notification groups do not provide mobile-app-specific deep links/actions.
-- The optional fixed corner overlay depends on Home Assistant frontend DOM behavior and may require adjustment after a major Home Assistant frontend redesign.
+- The optional fixed corner overlay depends on Home Assistant frontend behavior and is not guaranteed inside Companion-app WebViews.
 - Existing history created before friendly-name/unit metadata was stored cannot be retroactively enriched with information that was never recorded.
 
 ## Documentation
@@ -178,6 +182,9 @@ See [SECURITY.md](SECURITY.md) for vulnerability reporting and supported-version
 - [App guide](open_alarm/DOCS.md) — install, configuration, operation, notifications, indicator, backup, troubleshooting and verification.
 - [Architecture](ARCHITECTURE.md) — runtime design, lifecycle, persistence, Home Assistant interfaces and failure behavior.
 - [Changelog](open_alarm/CHANGELOG.md) — release notes.
+- [Third-party notices](open_alarm/THIRD_PARTY_NOTICES.md) — audited package/container licenses and attribution.
+- [Source provenance](PROVENANCE.md) — project/AI-assisted source provenance policy and limits.
+- [Notice](NOTICE) — release attribution notice.
 - [Contributing](CONTRIBUTING.md) — development setup and contribution expectations.
 - [Security](SECURITY.md) — security policy and vulnerability reporting.
 - [Releasing](RELEASING.md) — maintainer release/version/CI checklist.
@@ -188,6 +195,7 @@ Backend:
 
 ```bash
 python -m pip install -r open_alarm/requirements.txt 'httpx2>=2.12,<3' pytest ruff
+python open_alarm/license_audit.py fastapi uvicorn pydantic websockets httpx2 pytest ruff
 ruff check open_alarm tests
 pytest -q
 ```
@@ -197,6 +205,7 @@ Frontend and optional indicator syntax:
 ```bash
 cd open_alarm/frontend
 npm install --no-audit --no-fund
+node license-audit.mjs node_modules
 npm run build
 node --check ../open_alarm_indicator.js
 ```
@@ -205,13 +214,17 @@ Packaged App:
 
 ```bash
 docker build \
-  --build-arg BUILD_VERSION=0.1.0-beta.1 \
+  --build-arg BUILD_VERSION=0.1.0-beta.2 \
   --build-arg BUILD_ARCH=amd64 \
   -t open-alarm ./open_alarm
 ```
 
-CI runs Python lint/tests, the frontend build, JavaScript syntax validation and a real packaged-App boot/persistent-restart smoke test.
+CI runs dependency-license audits, Python lint/tests, the frontend build, JavaScript checks and a real packaged-App boot/persistent-restart smoke test. The packaged image contains its Open Alarm license, third-party notices, runtime Python license files and the actual Python/npm package-license inventories used by the build.
 
-## License
+## License and provenance
 
-Open Alarm is licensed under the [Apache License 2.0](LICENSE).
+Open Alarm project source is licensed under the [Apache License 2.0](LICENSE). Third-party components are **not** relicensed as Open Alarm; their licenses and copyrights are retained in [THIRD_PARTY_NOTICES.md](open_alarm/THIRD_PARTY_NOTICES.md) and the packaged App license inventory.
+
+Open Alarm has been developed with generative-AI assistance. A model cannot provide a reliable per-line training-data source map, so the project does not invent one. The source-provenance policy, copied-code rules and limits of that record are documented in [PROVENANCE.md](PROVENANCE.md).
+
+The release audit rejects proprietary/restricted/unknown-license Python and npm dependencies. This compliance work reduces licensing risk but is not a legal guarantee or substitute for professional legal advice where contractual assurance is required.

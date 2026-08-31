@@ -4,6 +4,35 @@ All notable Open Alarm release changes are documented here.
 
 Open Alarm is currently in Beta. Beta releases may change engineering fields, database schema and UI behavior. Release notes will call out changes that require backup, migration or operator action.
 
+## 0.1.0-beta.2 — 2026-08-31
+
+Second public Beta update focused on Home Assistant frontend reliability and phone-sized layouts.
+
+### Mobile and responsive UI
+
+- Removed the global 760 px minimum application width that forced a desktop canvas inside the Home Assistant Companion app.
+- Added responsive layouts for screens up to 700 px wide.
+- Navigation now scrolls horizontally within its own bar instead of widening the whole page.
+- Alarm/history and engineering tables keep their required table width but scroll inside their own content areas.
+- Engineering changes to a stacked phone layout with contained draft/revision lists and toolbar actions.
+- Alarm filters and control actions reflow for narrow screens.
+- Users/Admin and notification-group views stay inside the viewport on small screens.
+- Added a CI regression check for the mobile layout rules.
+
+### Global alarm indicator
+
+- The optional desktop/browser corner indicator now discovers the actual Home Assistant App panel path instead of using a hardcoded ingress URL.
+- Supports both Local App and repository-installed Open Alarm panel identifiers.
+- Shows amber `⚠ ?` after startup when the frontend module loads but the Open Alarm attention states are missing or unavailable.
+- Home Assistant attention-state publication failures are now logged by Open Alarm instead of failing silently.
+- Added behavioral CI coverage for the indicator routing and state model.
+- The corner overlay remains best-effort in Home Assistant Companion WebViews; the underlying Open Alarm Home Assistant states remain available independently.
+
+### Upgrade
+
+- No database migration or configuration change is required from `0.1.0-beta.1`.
+- Existing alarms, engineering revisions, users, history and notification configuration remain in the App data volume during a normal Home Assistant App update.
+
 ## 0.1.0-beta.1 — 2026-08-31
 
 First public Beta of Open Alarm.

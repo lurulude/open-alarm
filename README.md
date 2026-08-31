@@ -59,7 +59,7 @@ The App uses Home Assistant Ingress and the Supervisor/Core API. The current Hom
 
 When a newer `version` is published in `open_alarm/config.yaml`, Home Assistant Supervisor can offer the App update through the normal App UI. Beta.2 is a normal forward update from Beta.1.
 
-The first verified Home Assistant administrator to open Open Alarm becomes the first Open Alarm Admin. Other verified Home Assistant administrators are added with least privilege and can be assigned an Open Alarm role by an Open Alarm Admin.
+Home Assistant authenticates Ingress users and Supervisor supplies their `X-Remote-User-*` identity headers to Open Alarm. Because the Open Alarm panel is admin-only, the first authenticated ingress user to open Open Alarm becomes the first Open Alarm Admin. Later users are added with least privilege and can be assigned an Open Alarm role by an Open Alarm Admin.
 
 The Beta repository currently builds the App image from source on the Home Assistant machine. Prebuilt registry images are not required for Beta. The first install, update or rebuild can therefore take longer on small hardware.
 
@@ -158,9 +158,10 @@ The App declares Home Assistant `backup: cold`; normal Home Assistant App backup
 
 ## Security model
 
-- UI/API traffic is available through Home Assistant Ingress only.
+- UI/API traffic is available through Home Assistant Ingress only; the production app rejects non-watchdog requests that do not come from Supervisor's ingress proxy.
 - `/healthz` is the minimal direct watchdog endpoint.
-- Ingress identity is verified against Home Assistant; administrator status is fail-closed.
+- Home Assistant authenticates the ingress session and Supervisor supplies the authenticated user's `X-Remote-User-*` headers.
+- The Home Assistant panel is admin-only; Open Alarm does not request broad Supervisor administrator privileges merely to re-check the same ingress user.
 - Open Alarm applies its own Viewer / Operator / Engineer / Admin authorization to API actions.
 - Configuration, control and acknowledgement actions are associated with the authenticated user for audit.
 - The optional corner indicator does not grant the App extra filesystem permissions.

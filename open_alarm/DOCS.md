@@ -1,153 +1,93 @@
 # Open Alarm App Guide
 
-Open Alarm is a Home Assistant OS App for SCADA-style alarm management. This guide covers installation, first configuration, alarm behavior, notifications, Home Assistant attention states, the optional corner indicator, backup/recovery and troubleshooting for **0.1.0-beta.1**.
+Open Alarm is a Home Assistant OS App for SCADA-style alarm management. This guide covers installation, configuration, alarm behavior, notifications, Home Assistant attention states, the optional corner indicator, mobile UI, persistence, backup/recovery, licensing and troubleshooting for **0.1.0-beta.2**.
 
 > [!WARNING]
 > Open Alarm is Beta software and is not a certified safety system. It must not be the sole protective layer for life-safety, fire, medical, machinery-protection or other safety-critical functions.
 
 ## 1. Requirements
 
-Open Alarm Beta.1 supports Home Assistant App installations on:
+Open Alarm Beta.2 supports Home Assistant App installations on:
 
 - `aarch64`
 - `amd64`
 
-The App requires Home Assistant Ingress and Supervisor/Core API access. The packaged App declares `homeassistant_api: true`, boots automatically, uses a Supervisor watchdog and participates in Home Assistant cold backups.
+The App uses Home Assistant Ingress and Supervisor/Core API access, declares `homeassistant_api: true`, boots automatically, has a Supervisor watchdog and participates in Home Assistant cold backups.
 
-The current sidebar panel is admin-only. A Home Assistant administrator must open the App through Home Assistant Ingress.
+The current sidebar panel is `panel_admin: true`, so standard sidebar access requires a Home Assistant administrator. Open Alarm still maintains Viewer, Operator, Engineer and Admin roles internally for authorization and audit.
 
-## 2. Install from the App repository
+## 2. Install and update
 
-1. Open **Settings → Apps → App store** in Home Assistant.
-2. Open the App-store repository menu.
-3. Add:
+Add the App repository in **Settings → Apps → App store**:
 
-   `https://github.com/lurulude/open-alarm`
+`https://github.com/lurulude/open-alarm`
 
-4. Refresh the App store.
-5. Install **Open Alarm**.
-6. Start the App.
-7. Open **Open Alarm** from the Home Assistant sidebar.
+Refresh the App store, install **Open Alarm**, start it and open it from the sidebar.
 
-The Beta repository currently builds the App container from source on the Home Assistant machine. A first install/rebuild can therefore take several minutes on smaller hardware.
+The repository currently builds the App container from source on the Home Assistant machine. Installation/update therefore needs network access for the referenced base images and package dependencies and can take several minutes on smaller hardware.
+
+Home Assistant detects Open Alarm updates from the `version` in `config.yaml`. Beta.2 is a normal forward update from Beta.1. No database migration or Engineering configuration change is required for the Beta.1 → Beta.2 update.
 
 ### First administrator
 
-Open Alarm does not trust Ingress identity alone as proof of administrator status. The Ingress user is verified against Home Assistant.
+Ingress identity is verified against Home Assistant. The first verified Home Assistant administrator to open Open Alarm becomes the first Open Alarm **Admin**. Later verified Home Assistant administrators are created with least privilege and can be assigned an Open Alarm role by an Open Alarm Admin.
 
-The first verified Home Assistant administrator to open Open Alarm becomes the first Open Alarm **Admin**. Other verified Home Assistant administrators are created with least privilege and can be assigned an Open Alarm role by an Open Alarm Admin.
-
-The Open Alarm role hierarchy is:
+Roles:
 
 - **Viewer** — read alarms, history and runtime state.
-- **Operator** — Viewer capabilities plus acknowledgement, reset and shelving.
-- **Engineer** — Operator capabilities plus engineering configuration, suppression and out-of-service controls.
-- **Admin** — Engineer capabilities plus revision activation and Open Alarm user-role administration.
-
-Because the Home Assistant panel is `panel_admin: true` in Beta.1, standard sidebar access is currently limited to Home Assistant administrators even though Open Alarm keeps the more detailed internal role model.
+- **Operator** — Viewer plus acknowledgement, reset and shelving.
+- **Engineer** — Operator plus Engineering, suppression and out-of-service controls.
+- **Admin** — Engineer plus revision activation and Open Alarm user-role administration.
 
 ## 3. First boot
 
-A fresh install with no active alarm configuration is valid.
+A fresh install with no active alarm configuration is valid. Expected behavior:
 
-Expected behavior:
+- `/data/open_alarm.db` is created and migrations run;
+- App/watchdog remain healthy;
+- notification worker starts;
+- runtime reports no active revision until one is activated;
+- UI/API is accepted through Home Assistant Ingress;
+- Home Assistant receives `sensor.open_alarm_unacknowledged` and `binary_sensor.open_alarm_attention`.
 
-- the App remains running;
-- `/data/open_alarm.db` is created;
-- database migrations complete before normal UI use;
-- the notification worker starts;
-- runtime status reports no active revision;
-- `/healthz` reports healthy to the Supervisor watchdog;
-- UI/API traffic is accepted through Home Assistant Ingress;
-- Home Assistant receives `sensor.open_alarm_unacknowledged` and `binary_sensor.open_alarm_attention` states.
+## 4. Engineering workflow
 
-## 4. Engineering model
-
-Open Alarm intentionally presents one engineering alarm table rather than separate Tag, Equipment and Compile editors.
-
-The user-facing workflow is:
+Open Alarm intentionally uses one engineering alarm table instead of separate Tag, Equipment, Template or Compile editors.
 
 `EDIT → SAVE → REVIEW → ACTIVATE`
 
-Each row represents one Home Assistant source and receives the next numeric Alarm ID automatically.
+Each row represents one Home Assistant source and gets the next numeric Alarm ID automatically. Internally row `1` uses tag `T1`; an analog row can generate runtime alarms such as `A1_HIHI`, `A1_HI`, `A1_LO` and `A1_LOLO`. Those are stable engine identities, not primary operator text.
 
-Internally, engineering row `1` uses tag `T1`. An analog row may generate one or more runtime alarms such as `A1_HIHI`, `A1_HI`, `A1_LO` and `A1_LOLO`. Those generated IDs are stable engine identities, not operator-facing alarm descriptions.
+**Save all** atomically replaces the draft's generated source tags, alarms and notification policies. Optimistic draft timestamps prevent a stale browser session from silently overwriting a newer save.
 
-### Save
+**Review changes** validates the saved configuration and creates/reuses an immutable candidate revision. Review validates entity-ID syntax and configuration rules; it deliberately does not download every Home Assistant state to prove live existence.
 
-**Save all** atomically replaces the working draft's generated source tags, alarms and notification policies. Open Alarm uses optimistic draft timestamps so a stale browser session cannot silently overwrite a newer save.
+**Activate revision** switches the active immutable revision and reloads runtime monitoring. Active alarms do not block activation. Compatible stable alarms migrate live runtime state; removed/incompatible engineered state is reset and reevaluated. Existing history remains.
 
-### Review
+## 5. Analog alarms
 
-**Review changes** validates the saved configuration and creates or reuses an immutable candidate revision. Invalid drafts do not create an activatable revision.
+Configure one or more of **HiHi**, **Hi**, **Lo**, **LoLo**. Blank limits do not create runtime alarms. If multiple limits are configured:
 
-Review validates Home Assistant entity-ID syntax, configuration relationships, timings and alarm rules. It deliberately does **not** fetch every live Home Assistant state to prove that each entity currently exists. Runtime monitoring handles missing/disappearing sources as bad quality.
+`HiHi > Hi > Lo > LoLo`
 
-### Activate
+Set shared hysteresis, ON delay, OFF delay, priority, optional Message and optional notification group.
 
-**Activate revision** makes the reviewed immutable revision active and reloads runtime monitoring.
+High/High-high alarms are abnormal at `value >= setpoint` and return below `setpoint - hysteresis`. Low/Low-low alarms are abnormal at `value <= setpoint` and return above `setpoint + hysteresis`.
 
-Active engineered alarms do not block activation. If an alarm with the same stable ID remains runtime-compatible, its live state is migrated. Removed or incompatible engineered alarm runtime state is reset and the new definition is evaluated. Existing event/history records are retained.
+ON/OFF delays require continuous qualification; reversing before the deadline cancels the pending transition.
 
-## 5. Configure an analog alarm
+## 6. Digital alarms
 
-1. Open **Engineering**.
-2. Select **Add row**.
-3. Select a Home Assistant source from the searchable picker, or type a valid entity ID manually.
-4. Choose **Analog**.
-5. Enter at least one limit: **HiHi**, **Hi**, **Lo** or **LoLo**.
-6. When multiple limits are configured, values must descend:
+Choose `EQUALS` or `NOT_EQUALS` and configure the state value that defines abnormal. Digital timing has two stages:
 
-   `HiHi > Hi > Lo > LoLo`
-
-7. Configure shared **Hysteresis**.
-8. Configure **ON delay** and **OFF delay** if required.
-9. Choose priority/category as shown in the UI.
-10. Optionally enter an operator-facing **Message**.
-11. Optionally select a notification group.
-12. Leave the row enabled.
-13. Select **Save all → Review changes → Activate revision**.
-
-Blank analog limit fields do not create alarms.
-
-### Analog qualification
-
-For `HIGH` / `HIGH_HIGH`:
-
-- abnormal at `value >= setpoint`;
-- normal again only below `setpoint - hysteresis`.
-
-For `LOW` / `LOW_LOW`:
-
-- abnormal at `value <= setpoint`;
-- normal again only above `setpoint + hysteresis`.
-
-ON/OFF delays require continuous qualification. If the process reverses before the deadline, the pending transition is cancelled rather than accumulating elapsed time across interruptions.
-
-## 6. Configure a digital alarm
-
-1. Select **Add row** and choose a source such as an `input_boolean`, binary sensor or state-like entity.
-2. Choose **Digital**.
-3. Choose `EQUALS` or `NOT_EQUALS`.
-4. Enter the state value that defines the alarm condition.
-5. Configure optional debounce and ON/OFF delay.
-6. Configure priority, message and notification group as required.
-7. Save, Review and Activate.
-
-Digital timing has two layers:
-
-1. `debounce_on_s` / `debounce_off_s` qualify the raw source state;
+1. `debounce_on_s` / `debounce_off_s` qualify the raw source change;
 2. `on_delay_s` / `off_delay_s` qualify the alarm transition.
 
-A reversal cancels the current pending debounce/transition.
+A reversal cancels the current pending debounce/transition. Common boolean/input-boolean presentation uses readable on/off state text instead of raw Python booleans.
 
-For `input_boolean` presentation, Open Alarm shows human state text such as **on/off** (localized in the UI/notification) instead of exposing raw Python `True`/`False` values.
+## 7. Device / quality alarms
 
-## 7. Configure a device / quality alarm
-
-Device alarms explicitly alarm on source-quality conditions instead of treating a quality problem as a normal process value.
-
-Supported conditions are:
+Device rows can alarm on:
 
 - `UNAVAILABLE`
 - `UNKNOWN`
@@ -155,368 +95,243 @@ Supported conditions are:
 - `STALE`
 - `BAD_QUALITY`
 
-Device/quality alarms use ON/OFF delays, not digital debounce.
+Device/quality alarms use ON/OFF delays rather than digital debounce. A source-quality fault does **not** falsely normalize an already-active process alarm.
 
-If `stale_after_s` is configured for a source, the runtime can treat a source that has not updated within that interval as stale.
+## 8. Home Assistant source picker
 
-## 8. Source picker and display metadata
+The Engineering picker uses Home Assistant registry/device data plus a small filtered current-state preview. It can show entity ID, friendly name, value/unit, device name, manufacturer/model, platform and device class when available.
 
-The Engineering source picker uses Home Assistant registry/device information for search and requests a small filtered current-state preview for visible candidates. It can show:
-
-- entity ID;
-- Home Assistant friendly name;
-- current value and unit;
-- device name;
-- manufacturer/model when Home Assistant exposes them;
-- platform/device class when available.
-
-Manual entity IDs remain accepted so a temporary registry/picker failure does not prevent configuration work.
-
-At runtime Open Alarm records last-known source `friendly_name` and `unit_of_measurement` with alarm-relevant state. Active alarms and new history events can therefore show operator-friendly source/value text without querying Home Assistant on every browser refresh.
-
-Historical events created before this metadata existed cannot be retroactively enriched with data that was never stored.
+Manual entity IDs remain accepted. Runtime stores last-known source `friendly_name` and `unit_of_measurement` with alarm-relevant state so active alarms/history can show useful text without querying Home Assistant on every browser refresh.
 
 ## 9. Alarm lifecycle
 
-The primary lifecycle states are:
+Primary lifecycle states:
 
-- `NORMAL` — no alarm lifecycle condition is pending or active.
-- `PENDING_ON` — abnormal condition is waiting for ON delay.
-- `ACTIVE_UNACK` — alarm is active and needs acknowledgement.
-- `ACTIVE_ACK` — active alarm has been acknowledged.
-- `PENDING_OFF` — return condition is waiting for OFF delay.
-- `RTN_UNACK` — process condition returned but acknowledgement is still required by the lifecycle.
+- `NORMAL`
+- `PENDING_ON`
+- `ACTIVE_UNACK`
+- `ACTIVE_ACK`
+- `PENDING_OFF`
+- `RTN_UNACK`
 
-Shelving, suppression, inhibition, out-of-service and latching are separate control state. They do not replace the lifecycle state itself.
+Shelving, suppression, inhibition, out-of-service and latching are separate control state.
 
-### Unacknowledged semantics
-
-The **Unacknowledged** browser view counts:
-
-- `ACTIVE_UNACK`;
-- `RTN_UNACK`;
-- an alarm in `PENDING_OFF` whose pending transition originated from `ACTIVE_UNACK`.
-
-The count excludes shelved, suppressed, inhibited and out-of-service alarms. The same definition is used by Companion notification context, `sensor.open_alarm_unacknowledged` and the optional corner indicator.
+The canonical **Unacknowledged** count includes `ACTIVE_UNACK`, `RTN_UNACK`, and `PENDING_OFF` when its origin was `ACTIVE_UNACK`. It excludes shelved, suppressed, inhibited, out-of-service and already acknowledged alarms. The same definition drives the browser view, notification context and Home Assistant attention states.
 
 ## 10. Operator controls
 
-### Acknowledge
+Operators can acknowledge, reset where policy/state permits, and shelve for a bounded duration. Engineers can additionally suppress/unsuppress engineered alarms and take them out of service/return them to service.
 
-An Operator can acknowledge a single alarm or acknowledge all currently eligible unacknowledged alarms.
-
-### Reset
-
-Reset is available to Operators for alarm states/policies that require a manual reset. The engine validates whether reset is legal for the current state.
-
-### Shelve
-
-Operators can shelve an alarm for a bounded duration. Shelving is temporary and can be removed manually before expiry.
-
-### Suppress
-
-Engineers can suppress engineered alarms. Suppression remains until explicitly removed.
-
-### Out of service
-
-Engineers can take engineered alarms out of service and later return them to service.
-
-### Reasons and audit
-
-A reason is optional for current shelving/suppression/out-of-service workflows. When entered, it is stored with the audited action. The authenticated Open Alarm/Home Assistant user and event time are recorded independently of the optional reason.
+A reason is optional for current shelving/suppression/out-of-service actions. When supplied it is stored with the audited authenticated user and event time.
 
 Built-in system alarms can be acknowledged but cannot be shelved, suppressed or taken out of service.
 
 ## 11. Built-in system alarms
 
-Open Alarm includes system alarms for faults in the alarm-management path itself:
+Open Alarm includes persisted system alarms for failures in the alarm-management path itself, including:
 
-- **Home Assistant connection lost** — P1, with a short ON delay to avoid transient disconnect noise;
-- **Active configuration could not be loaded** — P1;
-- **Notification delivery worker stopped** — P1;
-- **Notification delivery failed** — P2.
+- Home Assistant connection lost — P1 with a short ON delay;
+- active configuration could not be loaded — P1;
+- notification delivery worker stopped — P1;
+- notification delivery failed — P2.
 
-These alarms use the same persisted lifecycle/history model but are not part of the editable engineering table.
+## 12. Restart safety and source quality
 
-## 12. Restart safety and quality behavior
+Alarm ON/OFF and digital-debounce deadlines are persisted when they matter. After restart, Open Alarm reloads persisted state, reconciles it with the current source and continues/completes/cancels the original deadline rather than blindly restarting timers from zero.
 
-Pending alarm and digital-debounce deadlines are persisted when they matter. After an App restart, Open Alarm reloads persisted state, compares it with the current Home Assistant value and continues, completes or cancels the transition. A pending timer is not simply restarted from zero.
-
-Home Assistant `unavailable`, `unknown`, a missing entity, stale data and Home Assistant connection loss are treated as explicit bad quality.
-
-Bad quality does **not** clear an existing process alarm to normal. The process lifecycle is retained while a device/quality or built-in system alarm represents the fault.
+`unavailable`, `unknown`, missing/stale sources and Home Assistant connection loss are explicit bad quality. Bad quality does not clear an existing process alarm to normal.
 
 ## 13. Notification groups
 
-Notification recipients are configured once as groups instead of being repeated on every alarm row.
+Engineering notification groups contain:
 
-1. In Engineering, add a notification group.
-2. Give it an operator-facing **name**.
-3. Set the **notification title** displayed by the recipient integration.
-4. Select one or more discovered Home Assistant `notify.*` entities.
-5. Configure an optional notification delay.
-6. Select that group on each alarm row that should notify it.
-7. Save, Review and Activate.
+- operator-facing group name;
+- notification title;
+- one or more Home Assistant `notify.*` entity recipients;
+- optional delay.
 
-### Notification text
+Activation notification text prefers the configured Message, otherwise the Home Assistant friendly name, then localized alarm condition and current value/unit/state. Up to three other alarms that still require acknowledgement may be shown. Generated IDs such as `A2_LOLO` are not the primary phone text.
 
-The current activation notification is intentionally compact:
+Alarm transition and notification-outbox enqueue are committed together. Delayed notifications are revalidated before send. Failed deliveries remain in the persistent outbox for retry and persistent failure raises a built-in system alarm.
 
-- configured group title only in the notification title;
-- operator Message when configured, otherwise Home Assistant friendly source name;
-- localized alarm condition such as **high**, **low-low**, **korkea**, **erittäin matala**;
-- current value/unit for analog sources;
-- localized state text for common boolean/digital values;
-- up to three other alarms that still require acknowledgement.
+### Mobile-action limitation
 
-Internal generated IDs such as `A2_LOLO` are not used as the main operator-facing phone text.
+The current group transport uses Home Assistant `notify.send_message` and sends **title + message**. Integration-specific mobile `data` is not forwarded, so Beta.2 generic groups do not provide tap-to-open deep links or actionable ACK buttons.
 
-### Delivery semantics
+## 14. Home Assistant attention states
 
-Alarm transition and notification-outbox enqueueing are committed together. Delivery happens after the database transaction succeeds.
+Open Alarm publishes:
 
-Delayed notifications are revalidated before send. A stale activation is cancelled if the alarm returned or became hidden/ineligible before the delay expired. Failed deliveries remain in the persistent outbox and are retried according to the worker policy; persistent failures raise the built-in notification-delivery system alarm.
+- `sensor.open_alarm_unacknowledged` — integer canonical unacknowledged count;
+- `binary_sensor.open_alarm_attention` — `on` when count > 0, `off` at zero, `unavailable` on a clean App stop; `device_class: problem`.
 
-### Mobile deep link / actionable ACK limitation
+These native states are the supported source for Home Assistant dashboards/automations and do not require a frontend extension.
 
-Current notification groups use Home Assistant's generic `notify.send_message` route and intentionally send only **title + message** to the target `notify.*` entities.
+## 15. Optional corner indicator
 
-Integration-specific mobile notification `data` is not forwarded for group delivery. Therefore Beta.1 group notifications do **not** provide:
-
-- tap-to-open Open Alarm deep linking;
-- mobile actionable ACK buttons.
-
-Adding those features would require a separate mobile-app-specific delivery path rather than pretending the generic group transport supports them.
-
-## 14. Home Assistant alarm-attention states
-
-While running, Open Alarm publishes two lightweight Home Assistant states through the Supervisor/Core API:
-
-### `sensor.open_alarm_unacknowledged`
-
-State: integer number of alarms that currently require acknowledgement.
-
-Attributes include a friendly name and `mdi:alert` icon.
-
-### `binary_sensor.open_alarm_attention`
-
-State:
-
-- `on` when the unacknowledged count is greater than zero;
-- `off` when it is zero;
-- `unavailable` on a clean Open Alarm stop.
-
-The state uses `device_class: problem` and carries the unacknowledged count as an attribute while available.
-
-Open Alarm refreshes these states periodically while running. They can be referenced from Home Assistant dashboards and automations without installing any frontend extension.
-
-## 15. Optional always-visible corner indicator
-
-Open Alarm includes `open_alarm/open_alarm_indicator.js`, an optional Home Assistant frontend module.
+`open_alarm/open_alarm_indicator.js` is an optional user-managed Home Assistant frontend module.
 
 Behavior:
 
-- zero unacknowledged alarms: hidden;
-- one or more: red `⚠ N` in the top-right corner;
-- clean Open Alarm stop/unavailable state: amber `⚠ ?`;
-- selecting the indicator navigates to Open Alarm.
+- zero unacknowledged alarms → hidden;
+- one or more → red `⚠ N`;
+- missing/unavailable Open Alarm state → amber `⚠ ?`;
+- selecting it navigates to the registered Open Alarm panel.
 
-### Enable it
-
-1. Copy `open_alarm/open_alarm_indicator.js` from this repository to Home Assistant:
-
-   `/config/www/open_alarm_indicator.js`
-
-2. Add the module to `configuration.yaml`:
+Copy it to `/config/www/open_alarm_indicator.js` and configure:
 
 ```yaml
 frontend:
   extra_module_url:
-    - /local/open_alarm_indicator.js
+    - /local/open_alarm_indicator.js?v=2
 ```
 
-3. Restart Home Assistant Core.
-4. Hard-refresh/reload the browser or Companion frontend.
+Restart Home Assistant Core and hard-refresh/reopen the frontend. The module discovers the actual registered App panel path, so it supports Local App and repository-style panel IDs.
 
-### Why it is optional
+The App deliberately does not request `/config` write permission just to install this decoration. The overlay works in normal browser frontends; **Companion-app WebView behavior is best effort**, because Home Assistant does not provide Apps a supported global-overlay API. The native attention states remain the source of truth.
 
-The App does not request write access to `/config` merely to install a visual overlay. The module is a user-managed opt-in frontend extension.
+## 16. Responsive/mobile UI
 
-The module is syntax-checked in CI. Home Assistant's module loader is supported, but a fixed global overlay necessarily interacts with frontend DOM/navigation behavior and may need adjustment after a major Home Assistant frontend redesign.
+Beta.2 removes the previous fixed desktop-width canvas. On phone-sized screens:
 
-If the overlay does not appear, first verify `sensor.open_alarm_unacknowledged` exists and changes correctly. The native state is the source of truth; the overlay is only a presentation layer.
+- navigation scrolls within its bar;
+- alarm/history tables scroll inside the content area;
+- Engineering stacks vertically and keeps wide engineering grids locally scrollable;
+- filters and control actions reflow;
+- Admin/notification views stay within the viewport.
 
-## 16. History
+If a narrow screen still forces the whole Open Alarm page wider than the Home Assistant viewport, report the page, device/viewport width and screenshot.
 
-History records alarm lifecycle and operator-control events. New events include source friendly-name/unit metadata when available. Operator-facing History resolves localized condition labels and Open Alarm user display names rather than relying on generated alarm IDs and internal user IDs.
+## 17. History and localization
 
-Internal IDs remain useful for troubleshooting/search and are retained in stored data.
+History records lifecycle and operator-control events. New events retain friendly-name/unit metadata when available and resolve known Open Alarm users to display names. Internal IDs remain stored for diagnostics/search.
 
-## 17. Localization
+English and Finnish UI/backend catalogs are kept in parity. Home Assistant-provided friendly names are displayed as supplied; Open Alarm does not translate the user's entity names.
 
-Open Alarm currently ships English and Finnish UI/backend catalogs.
+## 18. Persistence
 
-The selected Open Alarm user locale controls operator-facing UI and the locale stored with saved notification-group configuration. Persistent alarm states, event codes and IDs remain language-neutral.
-
-Home Assistant-provided friendly names are displayed as Home Assistant supplies them; Open Alarm does not translate the user's entity names.
-
-## 18. Persistence and database
-
-The primary database is:
+Primary database:
 
 `/data/open_alarm.db`
 
-SQLite uses WAL mode. Open Alarm stores:
+SQLite/WAL stores Engineering drafts/generated objects, immutable revisions/active pointer, runtime alarm state, pending deadlines, source display metadata, controls, history/audit, Open Alarm users/locales, notification outbox/retry state and runtime connectivity events.
 
-- engineering drafts and generated objects;
-- immutable compiled revisions and active-revision pointer;
-- alarm-relevant runtime state;
-- pending ON/OFF/debounce deadlines;
-- source friendly-name/unit metadata for runtime state;
-- shelving, suppression and out-of-service state;
-- alarm history and configuration/operator audit;
-- Open Alarm users, roles and locale preferences;
-- notification outbox and retry state;
-- runtime start/stop/connectivity events.
-
-Database migrations are applied automatically at startup and recorded in the schema-migration table.
-
-Beta releases may still change or rewrite the schema. Back up before upgrading between Beta versions when the release notes call for it.
+Schema migrations run automatically at startup and are recorded in the schema-migration table.
 
 ## 19. Backup and restore
 
-The App declares `backup: cold`. Use Home Assistant's normal backup workflow to back up the App. Cold backup stops the App while its data is captured, avoiding a live SQLite/WAL copy race.
+The App declares `backup: cold`. Use Home Assistant's normal App backup/restore flow so Open Alarm is stopped while SQLite data is captured. Do not copy an active SQLite/WAL database as the normal backup method.
 
-Before a risky Beta upgrade:
+Before a Beta update that changes persistence/configuration behavior, take and verify a Home Assistant backup, then update, start the App, verify runtime/active revision and test a representative alarm path.
 
-1. create a Home Assistant backup containing Open Alarm;
-2. verify the backup completed;
-3. install/update Open Alarm;
-4. start the App and confirm health/runtime state;
-5. test one known alarm path.
+## 20. License, third-party software and provenance
 
-For restore, use Home Assistant's App-backup restore mechanism rather than copying an active SQLite database while the App is running.
+Open Alarm **project source** is licensed under the Apache License 2.0. The complete license is included both at repository root and in `open_alarm/LICENSE` so it is available inside the App build context.
 
-## 20. Update
+Third-party software retains its own licenses and copyrights. See:
 
-When a newer version is published:
+- `../NOTICE`
+- `../PROVENANCE.md`
+- `THIRD_PARTY_NOTICES.md`
 
-1. read `CHANGELOG.md` for migration/behavior notes;
-2. create a backup if the release changes persistence/configuration behavior;
-3. refresh the App store/repository;
-4. update/rebuild Open Alarm through Home Assistant;
-5. start it and verify `/healthz`/runtime status in the UI;
-6. confirm the active revision and monitored entity count;
-7. test a representative analog or digital alarm;
-8. if using the optional corner indicator and its file changed, replace `/config/www/open_alarm_indicator.js` and refresh Home Assistant frontend caches.
+Beta.2 audits the actual installed Python/npm dependency graphs during CI and App build. Unknown/unreviewed license metadata fails the build. The policy rejects proprietary, commercial-only, noncommercial-only, field-of-use-restricted and source-available-but-restricted Python/npm dependencies.
 
-The current source-built repository may take longer to update than an App using prebuilt registry images.
+The built App image contains `/app/licenses/` with:
 
-## 21. Troubleshooting
+- Open Alarm Apache license;
+- third-party notices;
+- actual Python/npm package/version/license inventories;
+- available Python runtime package license files;
+- React, React DOM and Scheduler MIT license files because their code is incorporated into the production browser bundle.
 
-### App does not appear in the App store
+Open Alarm has been developed with generative-AI assistance. A model does not provide a reliable searchable per-line map back to training sources, so the project does not invent one. `PROVENANCE.md` documents that limitation and requires distinctive code with uncertain third-party provenance to be attributed/licensed correctly or replaced with a clean implementation.
 
-- Confirm the repository URL is exactly `https://github.com/lurulude/open-alarm`.
-- Refresh/reload the App store after adding the repository.
-- Confirm your Home Assistant machine architecture is `aarch64` or `amd64`.
-- Check repository visibility/network access if testing before public release.
+Home Assistant public API/configuration identifiers are used for interoperability. Home Assistant developer-documentation prose/examples are separately licensed and are not intentionally redistributed as Open Alarm documentation/source.
 
-### App build fails
+This compliance work reduces licensing risk; it is not legal advice or a guarantee that no intellectual-property claim can ever be made.
 
-Because Beta.1 builds from source, installation needs network access to obtain the base images and package dependencies. Review the Home Assistant App build log for Docker/npm/pip errors and retry after correcting network/storage problems.
+## 21. Update verification
 
-### App starts but runtime says no active configuration
+After an App update:
 
-This is normal on a fresh install. Create/save/review/activate an Engineering revision.
+1. read `CHANGELOG.md`;
+2. refresh the App repository and install the offered update;
+3. confirm the App starts and runtime reports the expected active revision/source count;
+4. verify `sensor.open_alarm_unacknowledged`;
+5. test one representative analog or digital alarm;
+6. if the optional indicator file changed, replace the `/config/www/` copy and cache-bust/reload it.
+
+The source-built App can take longer to update than a prebuilt registry image.
+
+## 22. Troubleshooting
+
+### App does not appear in the store
+
+Confirm repository URL, refresh the store and verify architecture is `aarch64` or `amd64`.
+
+### Build fails during dependency license audit
+
+Do not bypass the check. Read the build log for the package/license that failed. If an upstream package has changed license or stopped declaring one, the release must explicitly review, pin, replace or remove it before proceeding.
+
+### App starts with no active configuration
+
+Normal on a fresh install. Create, Save, Review and Activate an Engineering revision.
 
 ### Entity picker does not load
 
-The picker depends on Home Assistant registry/device WebSocket calls. Manual entity IDs remain allowed. A picker failure should not require a full Home Assistant `get_states` download during Review.
+Manual entity IDs remain valid. The picker depends on Home Assistant registry/device calls; Review should not require a full state download.
 
-### Alarm source is shown as the raw entity ID
+### Raw entity ID or missing unit appears
 
-Open Alarm prefers runtime `friendly_name`. Confirm the Home Assistant state exposes a friendly name, verify the current App build is running, and let the source emit/update its current state. If no friendly name is available, the entity ID is the correct fallback.
+Friendly name/unit come from Home Assistant state metadata. The entity ID/no-unit fallback is correct when metadata is absent. Old history cannot be retroactively enriched with data that was never stored.
 
-### Unit is missing
+### Notifications do not deep-link to Open Alarm
 
-Units come from Home Assistant `unit_of_measurement`. If the integration/entity does not expose a unit, Open Alarm cannot invent one. Older historical events created before metadata storage may also have no unit.
+Expected for the current generic `notify.send_message` group transport.
 
-### Notification group is empty or cannot be saved
+### Attention count looks wrong
 
-A group requires at least one valid Home Assistant `notify.*` entity target. Verify Home Assistant exposes the expected notify entity and reload the Engineering recipient list.
+Compare with the **Unacknowledged** browser tab and remember hidden/acknowledged alarms are intentionally excluded.
 
-### Notifications work but tapping does not open Open Alarm
+### Corner indicator missing
 
-That is the current Beta design. Generic group delivery uses `notify.send_message` title/message and does not forward mobile-specific deep-link/action data.
+Verify `/config/www/open_alarm_indicator.js`, `frontend.extra_module_url`, restart Core, hard-refresh, and check the native attention states. Amber `⚠ ?` means the module loaded but Open Alarm state is missing/unavailable. Companion WebView absence alone does not mean the browser module is broken.
 
-### `sensor.open_alarm_unacknowledged` is wrong
+### Home Assistant unavailable
 
-Compare it to Open Alarm's **Unacknowledged** browser tab. Shelved, suppressed, inhibited, out-of-service and acknowledged active alarms are intentionally excluded.
+Open Alarm retains the current process lifecycle instead of falsely clearing it and raises its Home Assistant connection-loss system alarm after the configured short delay.
 
-### Corner indicator is missing
+## 23. Verification checklist
 
-1. Verify `/config/www/open_alarm_indicator.js` exists.
-2. Verify `frontend.extra_module_url` contains `/local/open_alarm_indicator.js`.
-3. Restart Home Assistant Core after changing `configuration.yaml`.
-4. Hard-refresh the browser/Companion frontend.
-5. Confirm `sensor.open_alarm_unacknowledged` is greater than zero.
-6. Check browser developer-console errors if the native state is correct but the overlay is absent.
+Before relying on a Beta build, verify what matters to the installation:
 
-### Suppress / out-of-service button appears not to work
+- analog threshold/hysteresis/ON/OFF behavior;
+- digital debounce and delays;
+- restart during a pending timer;
+- bad quality does not falsely clear an active alarm;
+- acknowledgement survives restart where applicable;
+- shelving, suppression and out-of-service controls;
+- activation while an alarm is active;
+- notification delivery/delay cancellation;
+- Home Assistant attention count;
+- phone-sized UI if used;
+- optional corner indicator in the intended browser if enabled;
+- persistent `/data/open_alarm.db`/active revision after restart.
 
-Reasons are optional. The action should work without typing a reason. After changing the control state, check the matching **Suppressed** or **Out of service** browser view.
+## 24. Local development install
 
-### Home Assistant is unavailable
+For a Local App, copy the complete `open_alarm` directory to `/addons/open_alarm`, refresh **Local Apps** and install/rebuild. `config.yaml` currently has no `image` key, so Local Apps build from source.
 
-Open Alarm keeps the current process-alarm lifecycle instead of falsely clearing it. A Home Assistant connection-loss system alarm appears after its short delay. When connectivity returns, monitored states are reconciled.
+Backend development runs the Python license audit before lint/tests; frontend development runs the npm license audit before build. See repository `CONTRIBUTING.md` and `RELEASING.md`.
 
-## 22. Verification checklist
+## 25. Reporting problems
 
-Before relying on a Beta build in a real installation, verify the behavior important to that installation:
+For normal bugs, open a GitHub issue with Open Alarm version, Home Assistant version/architecture, affected area, relevant App logs and concise reproduction steps. Do not publish credentials, Supervisor tokens, private notification payloads or an unredacted database.
 
-- drive analog HiHi/Hi/Lo/LoLo conditions through activation, acknowledgement and return;
-- verify hysteresis around at least one threshold;
-- verify ON/OFF delay cancellation when the process reverses before the deadline;
-- drive a digital alarm through debounce and ON/OFF delay;
-- restart the App while a timer is pending and confirm the original deadline is preserved;
-- make a source unavailable and confirm bad quality does not falsely clear an active process alarm;
-- acknowledge an active alarm, restart the App and confirm acknowledgement survives;
-- test shelving and automatic/manual unshelving;
-- test suppress/unsuppress and out-of-service/return-to-service;
-- activate an engineering change while an alarm is active;
-- verify notification delivery and delayed-notification cancellation;
-- verify `sensor.open_alarm_unacknowledged` follows the browser count;
-- if enabled, verify the corner indicator appears/disappears and opens Open Alarm;
-- verify a normal stop/start keeps the same `/data/open_alarm.db` and active revision.
+For security vulnerabilities, follow repository `SECURITY.md`.
 
-## 23. Local development install
-
-For development on Home Assistant OS, copy the complete `open_alarm` directory to:
-
-`/addons/open_alarm`
-
-Then refresh **Local Apps** and install/rebuild the local App. Local Apps build from the checked-out source because `config.yaml` currently has no `image` key.
-
-The development database remains `/data/open_alarm.db` inside the App data volume.
-
-## 24. Reporting problems
-
-For non-sensitive bugs, open a GitHub issue with:
-
-- Open Alarm version;
-- Home Assistant version and hardware architecture;
-- whether the problem is runtime, Engineering, notifications or the optional overlay;
-- relevant App logs;
-- concise reproduction steps.
-
-Do not post secrets, Supervisor tokens, private notification payloads or an unredacted database publicly.
-
-For security vulnerabilities, follow the private reporting guidance in the repository `SECURITY.md`.
-
-## 25. Source and license
+For suspected unattributed/copyrighted source, identify the Open Alarm file and suspected upstream source so maintainers can establish the license/notice requirement or replace the implementation.
 
 Source repository:
 
 `https://github.com/lurulude/open-alarm`
-
-Open Alarm is licensed under the **Apache License 2.0**. The complete license text is provided in the repository root `LICENSE` file.

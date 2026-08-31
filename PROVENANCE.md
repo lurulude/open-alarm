@@ -8,7 +8,13 @@ Files in this repository are treated as Open Alarm project source unless they ar
 
 The current tree does not intentionally vendor third-party application source code, JavaScript libraries, fonts, images or other copied binary assets. Runtime and build dependencies are obtained from their normal package/container registries and are listed separately in the third-party notices.
 
-A repository scan performed for the `0.1.0-beta.2` release found no third-party copyright headers or SPDX headers embedded in Open Alarm application source files. Absence of a header is not proof of originality, so this is only one part of the provenance review.
+A repository scan performed for the `0.1.0-beta.2` release found no third-party copyright headers or SPDX headers embedded in Open Alarm application source files, no Stack Overflow source references, and no vendored/minified/font/image assets requiring an undisclosed source license. Absence of those markers is not proof of originality, so this is only one part of the provenance review.
+
+## Public-code similarity spot-check
+
+For Beta.2, distinctive exact fragments were selected from the alarm lifecycle engine, compiler validation, Home Assistant state publisher and optional corner indicator and searched through GitHub's public code search. The checked fragments included project-specific error/validation text and the indicator DOM identifier. The searches returned zero public code matches at the time of the audit.
+
+This is deliberately described as a **spot-check**, not an originality certificate. Search indexes are incomplete, independently written code can look similar, and exact-string search does not detect paraphrased or structurally similar implementations. The result is useful for catching obvious copy/paste provenance problems, but it cannot reconstruct AI training sources or prove that every line is unique worldwide.
 
 ## AI-assisted development
 
@@ -32,7 +38,7 @@ Open Alarm implements public Home Assistant App, Ingress, Supervisor/Core API an
 
 Home Assistant developer documentation is used as reference material for those interfaces. The developer-documentation repository is licensed separately from Open Alarm (currently Creative Commons Attribution-NonCommercial-ShareAlike 4.0). Open Alarm does not intentionally redistribute that documentation or substantial code examples from it. Documentation wording and implementation code in this repository should be independently written; mandatory API/configuration identifiers are used only as needed for interoperability.
 
-Open Alarm uses the official Home Assistant base image because Home Assistant explicitly provides those images for building Apps. The base image and its included software retain their own upstream licenses; see `open_alarm/THIRD_PARTY_NOTICES.md`.
+Open Alarm uses the official Home Assistant base image because Home Assistant provides those images for building Apps. The base image and its included software retain their own upstream licenses; see `open_alarm/THIRD_PARTY_NOTICES.md`.
 
 ## Contributions
 

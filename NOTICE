@@ -1,0 +1,17 @@
+Open Alarm
+Copyright 2026 Open Alarm contributors
+
+Licensed under the Apache License, Version 2.0.
+
+This distribution includes third-party open-source software. Third-party
+copyrights and licenses remain with their respective owners. See:
+
+  open_alarm/THIRD_PARTY_NOTICES.md
+  PROVENANCE.md
+
+The production frontend includes React, React DOM and Scheduler, Copyright
+(c) Meta Platforms, Inc. and affiliates, licensed under the MIT License.
+
+Home Assistant names, API identifiers and trademarks belong to their
+respective owners. Open Alarm is an independent project and is not endorsed
+or certified by Home Assistant or Nabu Casa.
